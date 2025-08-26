@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Script para mezclar PDFs alfabéticamente y enumerar páginas en color rojo
-Versión con manejo mejorado de errores de diccionario PyPDF2
+Script para mezclar PDFs alfabéticamente y enumerar páginas con color personalizable
+Versión con manejo mejorado de errores de diccionario PyPDF2 y selección de color
 """
 
 import os
@@ -10,12 +10,38 @@ from pathlib import Path
 import PyPDF2
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
-from reportlab.lib.colors import red
+from reportlab.lib.colors import red, blue, green, black, purple
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 import tempfile
 import io
 import warnings
+
+
+def get_color_choice():
+    """
+    Permite al usuario seleccionar el color del número de página
+    """
+    colors = {
+        '1': ('Rojo', red),
+        '2': ('Azul', blue),
+        '3': ('Verde', green),
+        '4': ('Negro', black),
+        '5': ('Morado', purple)
+    }
+    
+    print("\nSelecciona el color para los números de página:")
+    for key, (name, _) in colors.items():
+        print(f"  {key}. {name}")
+    
+    while True:
+        choice = input("\nIngresa tu selección (1-5): ").strip()
+        if choice in colors:
+            color_name, color_obj = colors[choice]
+            print(f"Color seleccionado: {color_name}")
+            return color_obj
+        else:
+            print("Selección inválida. Por favor ingresa un número del 1 al 5.")
 
 
 def extract_sorting_key(filename):
@@ -144,9 +170,9 @@ def merge_pdfs(pdf_files, output_path):
     return total_pages
 
 
-def create_page_number_overlay(page_number, page_width, page_height):
+def create_page_number_overlay(page_number, page_width, page_height, color=red):
     """
-    Crea una superposición con el número de página en color rojo
+    Crea una superposición con el número de página en el color especificado
     """
     packet = io.BytesIO()
     
@@ -154,7 +180,7 @@ def create_page_number_overlay(page_number, page_width, page_height):
     c = canvas.Canvas(packet, pagesize=(page_width, page_height))
     
     # Configurar el texto
-    c.setFillColor(red)
+    c.setFillColor(color)
     c.setFont("Helvetica-Bold", 12)
     
     # Posicionar el número en la esquina inferior derecha
@@ -168,11 +194,11 @@ def create_page_number_overlay(page_number, page_width, page_height):
     return PyPDF2.PdfReader(packet)
 
 
-def add_page_numbers(input_pdf_path, output_pdf_path):
+def add_page_numbers(input_pdf_path, output_pdf_path, color=red):
     """
-    Agrega números de página en color rojo al PDF
+    Agrega números de página en el color especificado al PDF
     """
-    print(f"\nAgregando números de página en color rojo...")
+    print(f"\nAgregando números de página en color seleccionado...")
     
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -194,7 +220,7 @@ def add_page_numbers(input_pdf_path, output_pdf_path):
                     page_height = float(page_box.height)
                     
                     # Crear la superposición con el número de página
-                    overlay_reader = create_page_number_overlay(page_num + 1, page_width, page_height)
+                    overlay_reader = create_page_number_overlay(page_num + 1, page_width, page_height, color)
                     overlay_page = overlay_reader.pages[0]
                     
                     # Combinar la página original con la superposición
@@ -242,6 +268,9 @@ def main():
     # Convertir a ruta absoluta
     folder_path = os.path.abspath(folder_path)
     
+    # Solicitar selección de color
+    selected_color = get_color_choice()
+    
     try:
         # Obtener archivos PDF ordenados alfabéticamente
         pdf_files = get_pdf_files(folder_path)
@@ -255,7 +284,7 @@ def main():
         total_pages = merge_pdfs(pdf_files, merged_pdf)
         
         # Agregar números de página
-        add_page_numbers(merged_pdf, final_pdf)
+        add_page_numbers(merged_pdf, final_pdf, selected_color)
         
         # Limpiar archivo temporal
         os.remove(merged_pdf)
