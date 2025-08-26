@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Script para mezclar PDFs alfabéticamente y enumerar páginas con color personalizable
-Versión con manejo mejorado de errores de diccionario PyPDF2 y selección de color
+Script para mezclar PDFs alfabéticamente y enumerar páginas con color y alineación personalizables
+Versión con manejo mejorado de errores de diccionario PyPDF2, selección de color y alineación
 """
 
 import os
@@ -42,6 +42,30 @@ def get_color_choice():
             return color_obj
         else:
             print("Selección inválida. Por favor ingresa un número del 1 al 5.")
+
+
+def get_alignment_choice():
+    """
+    Permite al usuario seleccionar la alineación del número de página
+    """
+    alignments = {
+        '1': ('Izquierda', 'left'),
+        '2': ('Centro', 'center'),
+        '3': ('Derecha', 'right')
+    }
+    
+    print("\nSelecciona la alineación para los números de página:")
+    for key, (name, _) in alignments.items():
+        print(f"  {key}. {name}")
+    
+    while True:
+        choice = input("\nIngresa tu selección (1-3): ").strip()
+        if choice in alignments:
+            alignment_name, alignment_value = alignments[choice]
+            print(f"Alineación seleccionada: {alignment_name}")
+            return alignment_value
+        else:
+            print("Selección inválida. Por favor ingresa un número del 1 al 3.")
 
 
 def extract_sorting_key(filename):
@@ -170,9 +194,9 @@ def merge_pdfs(pdf_files, output_path):
     return total_pages
 
 
-def create_page_number_overlay(page_number, page_width, page_height, color=red):
+def create_page_number_overlay(page_number, page_width, page_height, color=red, alignment='right'):
     """
-    Crea una superposición con el número de página en el color especificado
+    Crea una superposición con el número de página en el color y alineación especificados
     """
     packet = io.BytesIO()
     
@@ -183,22 +207,31 @@ def create_page_number_overlay(page_number, page_width, page_height, color=red):
     c.setFillColor(color)
     c.setFont("Helvetica-Bold", 12)
     
-    # Posicionar el número en la esquina inferior derecha
-    x_position = page_width - 50
+    # Calcular posición según la alineación
     y_position = 30
+    page_number_str = str(page_number)
     
-    c.drawString(x_position, y_position, str(page_number))
+    if alignment == 'left':
+        x_position = 50
+    elif alignment == 'center':
+        # Calcular el ancho aproximado del texto para centrarlo
+        text_width = c.stringWidth(page_number_str, "Helvetica-Bold", 12)
+        x_position = (page_width - text_width) / 2
+    else:  # 'right' por defecto
+        x_position = page_width - 50
+    
+    c.drawString(x_position, y_position, page_number_str)
     c.save()
     
     packet.seek(0)
     return PyPDF2.PdfReader(packet)
 
 
-def add_page_numbers(input_pdf_path, output_pdf_path, color=red):
+def add_page_numbers(input_pdf_path, output_pdf_path, color=red, alignment='right'):
     """
-    Agrega números de página en el color especificado al PDF
+    Agrega números de página en el color y alineación especificados al PDF
     """
-    print(f"\nAgregando números de página en color seleccionado...")
+    print(f"\nAgregando números de página en color y alineación seleccionados...")
     
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -220,7 +253,7 @@ def add_page_numbers(input_pdf_path, output_pdf_path, color=red):
                     page_height = float(page_box.height)
                     
                     # Crear la superposición con el número de página
-                    overlay_reader = create_page_number_overlay(page_num + 1, page_width, page_height, color)
+                    overlay_reader = create_page_number_overlay(page_num + 1, page_width, page_height, color, alignment)
                     overlay_page = overlay_reader.pages[0]
                     
                     # Combinar la página original con la superposición
@@ -271,6 +304,9 @@ def main():
     # Solicitar selección de color
     selected_color = get_color_choice()
     
+    # Solicitar selección de alineación
+    selected_alignment = get_alignment_choice()
+    
     try:
         # Obtener archivos PDF ordenados alfabéticamente
         pdf_files = get_pdf_files(folder_path)
@@ -284,7 +320,7 @@ def main():
         total_pages = merge_pdfs(pdf_files, merged_pdf)
         
         # Agregar números de página
-        add_page_numbers(merged_pdf, final_pdf, selected_color)
+        add_page_numbers(merged_pdf, final_pdf, selected_color, selected_alignment)
         
         # Limpiar archivo temporal
         os.remove(merged_pdf)
